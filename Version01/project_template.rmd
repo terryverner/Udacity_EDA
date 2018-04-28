@@ -1,0 +1,581 @@
+---
+output:
+  html_document:
+    theme: "flatly"
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    keep_md: true
+  pdf_document: default
+---
+Wine Data Exploration by Terry Verner
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(tidyverse)
+library(ggcorrplot)
+library(GGally)
+library(ggthemes)
+theme_update(panel.grid = element_blank())
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Load_the_Data}
+
+# Load the Data
+raw_whites <- read_csv('./wineQualityWhites.csv')
+white <- raw_whites[, 2:13]
+
+raw_reds <- read_csv('./wineQualityReds.csv')
+red <- raw_reds[, 2:13]
+
+
+#raw_whites$type <- "white"
+#raw_reds$type <- "red"
+#wine <- bind_rows(raw_whites, raw_reds)
+#wine$type <- as.factor(wine$type)
+
+```
+
+
+The dataset contains nearly 5000 records of white wine flavor profiles and
+quality ratings.
+
+# Univariate Plots Section
+
+```{r echo=FALSE, warning=FALSE, Shape_of_the_Dataset}
+
+dim(white)
+
+```
+
+The dataset includes 4898 observations of 12 features.
+
+```{r echo=FALSE, warning=FALSE, Structure_of_Data}
+
+str(white)
+
+```
+
+The data types for the features are 11 numeric (float) and 1 integer.
+
+```{r echo=FALSE, warning=FALSE, Summary_Statistics}
+
+summary(white)
+
+```
+
+Let's dive in to some univariate plotting to get a better look at a handful 
+of these features and consider engineering new features.
+
+```{r echo=FALSE, warning=FALSE, Table_Quality}
+
+table(white$quality)
+
+```
+
+```{r echo=FALSE, warning=FALSE, Histogram_of_Quality}
+
+ggplot(white, aes(x = quality)) +
+    geom_histogram(binwidth = 0.5,
+                   fill = 'white',
+                   color = 'black') +
+    scale_x_continuous(breaks = seq(0, 10, 
+                                    by = 1.0),
+                       limits = c(0, 10.0)) +
+    geom_vline(xintercept = mean(white$quality, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$quality, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+The distribution of quality is approximately normal. With a median of 6 and 
+mean of 5.878, we can see the center of the data is slightly skewed toward the
+higher values. I would say the data exhibits a very slight left skew.
+
+```{r echo=FALSE, warning=FALSE, Alcohol_Histogram}
+
+ggplot(white, aes(x = alcohol)) +
+    geom_histogram(binwidth = 0.20, 
+                   color = 'black',
+                   fill = 'white') +
+    scale_x_continuous(breaks = seq(min(white$alcohol), 
+                                    max(white$alcohol), 
+                                    by = 0.20)) +
+    theme(axis.text.x=element_text(angle=90)) +
+    geom_vline(xintercept = mean(white$alcohol, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$alcohol, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+This is interesting because the data for alcohol is not normally distributed.
+The data is right skewed with the mean and median values at 10.51 and 10.4 
+respectively. However, the largest bin is 9.4 percent alcohol by volume.
+
+```{r echo=FALSE, warning=FALSE, Boxplot_of_Alcohol_by_Quality}
+
+ggplot(white, aes(x = as.factor(quality), y = alcohol)) +
+    geom_boxplot() +
+    xlab("quality")
+
+```
+
+It appears that in most, but not all cases, the alcohol content is more 
+positively correlated with wine quality. The Pearson correlation coefficient is
+`r cor(white$quality, white$alcohol)`.
+
+```{r echo=FALSE, warning=FALSE, Volatile_Acidity_Histogram}
+
+ggplot(white, aes(x = volatile.acidity)) +
+    geom_histogram(binwidth = 0.025, 
+                   color = 'black',
+                   fill = 'white') +
+    scale_x_continuous(breaks = seq(min(white$volatile.acidity), 
+                                    max(white$volatile.acidity), 
+                                    by = 0.025)) +
+    theme(axis.text.x=element_text(angle=90)) +
+    geom_vline(xintercept = mean(white$volatile.acidity, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$volatile.acidity, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+The volatile acidity can, in high amounts, impart vinegar-like taste. The data
+for this feature is significantly right skewed. I was hoping to use this 
+feature to correlate with quality, but the few samples of high values might 
+make that a futile endeavor.
+
+```{r echo=FALSE, warning=FALSE, Boxplot_of_Volatile.acidity_by_Quality}
+
+ggplot(white, aes(x = as.factor(quality), y = volatile.acidity)) +
+    geom_boxplot() +
+    xlab("quality")
+
+```
+
+The variability of volatile acidity across quality is not great and the 
+correlation seems very weak at best. At least initially, this appears to be a
+dead end from an analytical perspective.
+
+```{r echo=FALSE, warning=FALSE, Citric_Acid_Histogram}
+
+ggplot(white, aes(x = citric.acid)) +
+    geom_histogram(binwidth = 0.05, 
+                   color = 'black',
+                   fill = 'white') +
+    scale_x_continuous(breaks = seq(min(white$citric.acid), 
+                                    max(white$citric.acid), 
+                                    by = 0.1)) +
+    geom_vline(xintercept = mean(white$citric.acid, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$citric.acid, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+```{r echo=FALSE, warning=FALSE, Citric_Acid_Histogram_V2}
+
+ggplot(white, aes(x = citric.acid)) +
+    geom_histogram(binwidth = 0.05, 
+                   color = 'black',
+                   fill = 'white') +
+    scale_x_continuous(breaks = seq(min(white$citric.acid), 
+                                    max(white$citric.acid), 
+                                    by = 0.05),
+                       limits = c(min(white$citric.acid),
+                                  quantile(white$citric.acid, 0.95))) +
+    theme(axis.text.x=element_text(angle=90)) +
+    geom_vline(xintercept = mean(white$citric.acid, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$citric.acid, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+After zooming in to exclude outliers, the distribution is relatively normal. I
+might be able to combine this feature with another, or others, and glean some 
+significant insights from it.
+
+```{r echo=FALSE, warning=FALSE, Boxplot_of_Citric.acid_by_Quality}
+
+ggplot(white, aes(x = as.factor(quality), y = citric.acid)) +
+    geom_boxplot() +
+    xlab("quality")
+
+```
+
+Citric acid adds a freshness or light flavor to wine. The data for this
+feature is right skewed. Similar to volatile acidity, I was hoping to use 
+this feature to correlate with quality, but the few samples of high values 
+might discount that effort as well.
+
+```{r echo=FALSE, warning=FALSE, Free_Sulfur_Dioxide_Histogram}
+
+ggplot(white, aes(x = free.sulfur.dioxide)) +
+    geom_histogram(binwidth = 3, 
+                   color = 'black',
+                   fill = 'white') +
+    scale_x_continuous(breaks = seq(min(white$free.sulfur.dioxide), 
+                                    max(white$free.sulfur.dioxide), 
+                                    by = 3),
+                       limits = c(min(white$free.sulfur.dioxide),
+                                  max(white$free.sulfur.dioxide))) +
+    theme(axis.text.x=element_text(angle=90)) +
+    coord_cartesian(xlim = c(min(white$free.sulfur.dioxide),
+                             quantile(white$free.sulfur.dioxide, 0.95))) +
+    geom_vline(xintercept = mean(white$free.sulfur.dioxide, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$free.sulfur.dioxide, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+After zooming in to exclude outliers, the distribution of free sulfur dioxide
+is normal. This is a feature I may be able to work with during later analysis.
+
+```{r echo=FALSE, warning=FALSE, Boxplot_of_Free.sulfur.dioxide_by_Quality}
+
+ggplot(white, aes(x = as.factor(quality), y = free.sulfur.dioxide)) +
+    geom_boxplot() +
+    xlab("quality")
+
+```
+
+```{r echo=FALSE, warning=FALSE, Boxplot_of_Free.sulfur.dioxide_by_Quality_V2}
+
+ggplot(white, aes(x = as.factor(quality), y = free.sulfur.dioxide)) +
+    geom_boxplot() +
+    xlab("quality") +
+    coord_cartesian(ylim = c(0, 100))
+
+```
+
+The free.sulfur.dioxide by quality, however, is not very significant in terms
+of correlation. I will need to use this feature in conjunction with another.
+
+```{r echo=FALSE, warning=FALSE, Create_New_Feature}
+
+white$so2.percent <- white$free.sulfur.dioxide / white$total.sulfur.dioxide
+
+```
+
+Let's create a new feature as the percentage of free sulfur dioxide. This is
+calculated by dividing `free.sulfur.dioxide` by `total.sulfur.dioxide`. The new
+feature will be called so2.percent.
+
+```{r echo=FALSE, warning=FALSE, SO2_Percentage_Histogram}
+
+ggplot(white, aes(x = so2.percent)) +
+    geom_histogram(fill = 'white',
+                   color = 'black',
+                   bins = 50) +
+    xlab("Free / Total Sulfur Dioxide") +
+    geom_vline(xintercept = mean(white$so2.percent, na.rm = TRUE),
+               color = 'orange',
+               size = 1,
+               linetype = 5) +
+    geom_vline(xintercept = median(white$so2.percent, na.rm = TRUE),
+               color = 'blue',
+               size = 1,
+               linetype = 3)
+
+```
+
+I think this percentage feature can allow me greater insights into the quality
+of white wines. SO2 is required to prevent oxidation, however, a balance must 
+be found to prevent a strong sulfuric smell in the nose or the taste.
+
+```{r echo=FALSE, warning=FALSE, Boxplot_of_so2_percent_by_Quality}
+
+ggplot(white, aes(x = as.factor(quality), y = so2.percent)) +
+    geom_boxplot() +
+    xlab("quality")
+
+```
+
+# Univariate Analysis
+
+#### What is the structure of your dataset?
+
+The data is now structured with 12 continuous features and 1 discrete, categorical
+output feature. With nearly 5000 observations, I may be able to glean more 
+detailed insights or create more granular plots as compared to the red wines
+dataset of 1600 observations.
+
+#### What is/are the main feature(s) of interest in your dataset?
+
+The primary feature I am interested in is the output variable, quality. If
+the wine does not taste good, no one will drink it or even give much thought
+to its characteristics influencing that quality.
+
+#### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+
+The other features I am interested in pertain to specific influences of taste.
+These are residual sugar and various measures of acidity.
+
+#### Did you create any new variables from existing variables in the dataset?
+
+I created a single new variable as free sulfur dioxide divided by the total 
+sulfur dioxide. This proporation is normally distributed and may allow a better
+spread of the data while trying to extract meaningful insights.
+
+#### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+While I did not have to clean the data or make it tidy, I did observe unusual
+distributions of a handful of features. The unusual distribution could lead to
+some interesting insights, or perhaps lead me to a dead end.
+
+# Bivariate Plots Section
+
+```{r echo=FALSE, warning=FALSE, Correlation_Matrix}
+
+corr_matrix <- round(cor(white), 3)
+corr_matrix
+
+```
+
+```{r echo=FALSE, warning=FALSE, Plot_Correlation_Matrix}
+
+ggcorrplot(corr_matrix, method = 'square',
+           colors = c('dark orange', 'light grey', 'dark blue'))
+
+```
+
+This correlation plot is not encouraging in determining very many strong 
+relationships, at least at a rudimentary level. I will likely need to slice and 
+manipulate my plots further to glean actionable insights. The multivariate 
+plots should help drill down better in the section following.
+
+```{r echo=FALSE, warning=FALSE, Alcohol_by_Quality}
+
+ggplot(white, aes(quality, alcohol)) +
+    geom_point(position = position_jitter(),
+               alpha = 0.25)
+    
+```
+
+Although faint, there may a positive correlation between quality and alcohol
+content. The correlation coefficient of these two features is 
+`r cor(white$quality, white$alcohol)`.
+
+```{r echo=FALSE, warning=FALSE, Density_by_Alcohol}
+
+ggplot(white, aes(alcohol, residual.sugar)) +
+    geom_point(position = position_jitter(),
+               alpha = 0.25) +
+    coord_cartesian(ylim = c(0, 35))
+
+```
+
+This plot suggests a weak to moderate negative correlation between alcohol and
+residual sugar. Higher residual sugar levels more frequently correspond to 
+lower alcohol levels. This surprises me to certain degree because other types 
+of strong alcohols try to make their beverage more palatable and to mask the 
+strength of the alcohol. This, however, suggests many of the strong wines have
+lower levels of residual sugar.
+
+```{r echo=FALSE, warning=FALSE, pH_by_Fixed.Acidity}
+
+ggplot(white, aes(fixed.acidity, pH)) +
+    geom_point(position = position_jitter(),
+               alpha = 0.25)
+
+```
+
+pH and fixed.acidity shows a moderate negative correlation as I expected. This
+is due to acids being represented by lower values on the pH scale.
+
+```{r echo=FALSE, warning=FALSE, Fixed.Acidity_by_Quality}
+
+ggplot(white, aes(quality, fixed.acidity)) +
+    geom_point(position = position_jitter(),
+               alpha = 0.25)
+
+```
+
+I was hopeful the fixed acidity level might be well described by quality; 
+however, the correlation appears to be weakly negative to not correlated.
+
+
+```{r echo=FALSE, warning=FALSE, SO2_Percent_by_Quality}
+
+ggplot(white, aes(quality, so2.percent)) +
+    geom_point(alpha = 0.1)
+
+```
+
+The percentage of free sulfur dioxide compared to the total, did not end up as
+descriptive as I anticipated it could be, nor predictive in terms of one being
+described by the other.
+
+```{r echo=FALSE, warning=FALSE, Residual.sugar_by_Density}
+
+ggplot(white, aes(density, residual.sugar)) +
+    geom_point(alpha = 0.1)
+
+```
+
+Even without zooming in to confirm at a smaller scale, I can see a strongly
+positive correlation between density and residual sugars. This is expected
+because sugar is typically heavier and more dense than the other chemicals
+composing a beverage or other liquid solution.
+
+```{r echo=FALSE, warning=FALSE, Residual.sugar_by_Density_V2}
+
+ggplot(white, aes(density, residual.sugar)) +
+    geom_point(alpha = 0.1) +
+    coord_cartesian(xlim = c(min(white$density), 1.015),
+                    ylim = c(min(white$residual.sugar), 40))
+
+```
+
+Zoomed in, the previous plot trendline is more easily observed. There is a 
+correlation between density and residual.sugar
+
+```{r echo=FALSE, warning=FALSE, so2.percent_by_sulphates}
+
+ggplot(white, aes(sulphates, so2.percent)) +
+    geom_point(position = position_jitter(),
+               alpha = 0.25)
+
+```
+
+I was genuinely surprised there is effectively no correlation between sulphates
+and so2.percent. I would expect one feature to influence the other, yet this
+plot suggests that is not the case.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+I think there may be relationships between multiple variables rather than
+simply two variables. Most of the visualizations I developed did not 
+demonstrate a strong or even moderate correlation. Only a handful of plots 
+alone showed a relationship between the two variables.
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+
+I think the most interesting relationship I uncovered was the moderate,
+negative correlation between alcohol and residual sugars. Other types of strong
+alcohols add sugar and mask the strength of the alcohol. This, however, 
+suggests many of the strong wines have lower levels of residual sugar.
+There may be some process of wine creation that could explain this correlation.
+
+### What was the strongest relationship you found?
+
+The strongest relationship was one I expected: residual sugar vs. density. The
+density of wine was strongly correlated with residual sugars and that is 
+expected because any residual sugar would add density to a liquid solution.
+
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, warning=FALSE, Multivariate_Plots}
+
+```
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+### Were there any interesting or surprising interactions between features?
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the \
+strengths and limitations of your model.
+
+------
+
+# Final Plots and Summary
+
+> **Tip**: You've done a lot of exploration and have built up an understanding
+of the structure of and relationships between the variables in your dataset.
+Here, you will select three plots from all of your previous exploration to
+present here as a summary of some of your most interesting findings. Make sure
+that you have refined your selected plots for good titling, axis labels (with
+                                                                         units), and good aesthetic choices (e.g. color, transparency). After each plot,
+make sure you justify why you chose each plot by describing what it shows.
+
+### Plot One
+```{r echo=FALSE, warning=FALSE, Plot_One}
+
+```
+
+### Description One
+
+
+### Plot Two
+```{r echo=FALSE, warning=FALSE, Plot_Two}
+
+```
+
+### Description Two
+
+
+### Plot Three
+```{r echo=FALSE, warning=FALSE, Plot_Three}
+
+```
+
+### Description Three
+
+------
+  
+  # Reflection
+  
+  > **Tip**: Here's the final step! Reflect on the exploration you performed and
+the insights you found. What were some of the struggles that you went through?
+What went well? What was surprising? Make sure you include an insight into
+future work that could be done with the dataset.
+
+> **Tip**: Don't forget to remove this, and the other **Tip** sections before
+saving your final work and knitting the final report!
